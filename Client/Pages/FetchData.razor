@@ -1,0 +1,87 @@
+@page "/fetchdata"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using BlazorTest.Shared
+@using System
+@using System.Threading
+@using System.Threading.Tasks
+@using BlazorTest.Client.Services
+@using Grpc.Core
+@using Grpc.Net.Client
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+
+@attribute [Authorize]
+@inject HttpClient Http
+@inject GrpcBearerTokenProvider GrpcBearerTokenProvider
+<h1>Weather forecast</h1>
+
+<p>This component demonstrates fetching data from the server.</p>
+
+@if (forecasts == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Temp. (C)</th>
+                <th>Temp. (F)</th>
+                <th>Summary</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var forecast in forecasts)
+            {
+                <tr>
+                    <td>@forecast.Date.ToShortDateString()</td>
+                    <td>@forecast.TemperatureC</td>
+                    <td>@forecast.TemperatureF</td>
+                    <td>@forecast.Summary</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private WeatherForecast[] forecasts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var cts = new CancellationTokenSource();
+            string token = "";
+            try
+            {
+                token = await GrpcBearerTokenProvider.GetTokenAsync(Program.Scope);
+            }
+            catch (AccessTokenNotAvailableException a)
+            {
+                a.Redirect();
+            }
+
+            if (!Http.DefaultRequestHeaders.Contains("Authorization"))
+            {
+                Http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+            }
+            else
+            {
+                var auth = Http.DefaultRequestHeaders.First(d=>d.Key=="Authorization");
+                var temp=auth.Value.First();
+                temp = token;
+            }
+
+            forecasts = await Http.GetFromJsonAsync<WeatherForecast[]>("WeatherForecast");
+        }
+        catch (AccessTokenNotAvailableException exception)
+        {
+            exception.Redirect();
+        }
+    }
+
+}
